@@ -3,9 +3,11 @@ use std::thread;
 use std::sync::Arc;
 use std::sync::mpsc;
 use num::Complex;
-use crate::acars;
+
+use crate::acars::common::Reception;
 
 const SAMPLE_RATE: u32   = 2_400_000;
+const SIZE_RATE_MULTIPLIER: usize = 20; 
 
 
 #[allow(dead_code)]
@@ -20,14 +22,14 @@ pub struct Device {
 
 impl Device {
 
-    pub fn new(index: i32, frequencies: Vec<f64>) {
+    pub fn new(index: i32, frequencies: Vec<f64>, output: mpsc::Sender<Reception>) {
 
         loop {
 
-            let device = match Device::setup(index, &frequencies) {
+            let device = match Device::setup(index, &frequencies, output.clone()) {
                 Ok(device) => device,
-                Err(_) => {
-                    eprintln!("Restarting RTL-SDR device {} in 5 secs...", index);
+                Err(error) => {
+                    eprintln!("Error: {}. Restarting RTL-SDR device {} in 5 secs...", error, index);
                     std::thread::sleep(std::time::Duration::from_secs(5));
                     continue;
                 },
@@ -37,18 +39,19 @@ impl Device {
         }
     }
 
-    fn setup(index: i32, frequencies: &Vec<f64>) -> Result<Device, rtlsdr::RTLSDRError> {
+    fn setup(index: i32, frequencies: &Vec<f64>, output: mpsc::Sender<Reception>) -> Result<Device, rtlsdr::RTLSDRError> {
 
         let central_frequency = Device::central_frequency(&frequencies);
         let sample_rate = SAMPLE_RATE;
-        let sample_size = (sample_rate / acars::CHANNEL_RATE) as usize;
+        let sample_size = (sample_rate / super::acars::poa::CHANNEL_RATE) as usize * SIZE_RATE_MULTIPLIER;
         let buffer_size = sample_size * 2 * 1024;
 
         let mut dev = rtlsdr::open(index) ?;
 
+        dev.set_tuner_gain_mode(true) ?;
+        dev.set_tuner_gain(496) ?;                 // TODO: Need to create a Nearest Gain
         dev.set_center_freq((central_frequency * 1e6) as u32) ?;
         dev.set_sample_rate(sample_rate) ?;
-        dev.set_tuner_gain_mode(false) ?;
         dev.reset_buffer() ?;
 
         let sample_rate = dev.get_sample_rate() ?;
@@ -71,10 +74,11 @@ impl Device {
                 central_frequency,
                 sample_rate,
                 sample_size,
-                rx
+                rx,
+                output.clone(),
             );
 
-            thread::spawn(move || { acars::Channel::new(channel_setup); });
+            thread::spawn(move || { super::acars::poa::Channel::new(channel_setup); });
 
             device.outputs.push(tx);
         }
