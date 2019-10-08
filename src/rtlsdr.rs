@@ -1,3 +1,27 @@
+/*
+ *
+ *  This code is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU Library General Public License version 2
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ */
+
+
+//! rtlsdr.rs provides all functionalities for RTLSDR device handling. The Device object 
+//! once instantiated will create threads for each channel.
+//! 
+//! Reasonably operational. Still need to investigate the use of SAMPLE_RATE in conjunction with
+//! CHANNEL_RATE (from acars.rs) The constant SIZE_RATE_MULTIPLIER is a tweak to improve the 
+//! quality of the decoding (Ok kind of success)
 
 use std::thread;
 use std::sync::Arc;
@@ -22,6 +46,7 @@ pub struct Device {
 
 impl Device {
 
+    /// Instantiator for the Channel object
     pub fn new(index: i32, frequencies: Vec<f64>, output: mpsc::Sender<Reception>) {
 
         loop {
@@ -39,6 +64,7 @@ impl Device {
         }
     }
 
+    /// Initializes all Device parameters
     fn setup(index: i32, frequencies: &Vec<f64>, output: mpsc::Sender<Reception>) -> Result<Device, rtlsdr::RTLSDRError> {
 
         let central_frequency = Device::central_frequency(&frequencies);
@@ -88,6 +114,9 @@ impl Device {
         Ok(device)
     }
 
+    /// Executes the composition of RTLSDR byte stream buffer into a vector of complex numbers
+    /// which is replicated to all Channels for mixing, demodulation, decoding, and finally 
+    /// output via output.rs thread
     fn process(mut device: Device) {
 
         loop {
@@ -117,6 +146,7 @@ impl Device {
         }
     }
 
+    /// Average of the frequencies defined, or the frequency + 25 KHz for a single frequency
     fn central_frequency(frequencies: &Vec<f64>) -> f64{
 
         let mut center_frequency = 0.0;

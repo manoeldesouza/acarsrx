@@ -1,3 +1,124 @@
+/*
+ *
+ *  This code is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU Library General Public License version 2
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ */
+
+//! # acarsrx
+//! Copyright (c) 2019 Manoel Souza <manoel.desouza@outlook.com.br>
+//! ACARS decoder for RTL-SDR and (in future) other SDR devices
+//! 
+//! Inspired on Acarsdec Copyright (c) by Thierry Thierry Leconte
+//! 
+//! https://github.com/TLeconte/acarsdec
+//!
+//! and Acars-sdrplay Copyright (c) by Jan van Katwijk <J.vanKatwijk@gmail.com>
+//! 
+//! https://github.com/JvanKatwijk/acars-sdrplay
+//! 
+//! 
+//!  ## Introduction:
+//!
+//! acarsrx is designed to be able to run each SDR device in separate thread enabling multiple devices 
+//! to be controlled from a single execution. For each SDR device controlled, multiple channels can be 
+//! used to demodulate and decode multiple frequencies. Special attention is put into decoupling the 
+//! SDR handling and the channels processing (where demodulation, decoding and block formating). This 
+//! way, it is planned for other SDR devices to be controlled from the same application (HackRF is a 
+//! work in progress).
+//! 
+//! 
+//! ## Design:
+//! 
+//! Each SDR device is planned to have all instructions handling from a single Rust file (as done for 
+//! rtlsdr.rs and being done for hackrf.rs).
+//! 
+//! Following the same concept, each protocol is planned to be fully defined in a single Rust file (as 
+//! done for acars.rs). acars.rs defines all instructions for plain old ACARS (POA) and is planned to 
+//! also include VDL Mode 2 decoding in future releases.
+//!
+//! The system is designed to initiate threads to handle each SDR device and other threads for each 
+//! channel from within the SDR thread. 
+//! 
+//! 
+//! ### Thread execution example: 
+//! 
+//! ```bash
+//! acarsrx --rtlsdr 0 131.550 131.725 --rtlsdr 1 129.125 129.425
+//! ```
+//! 
+//! ```text
+//!                         / acars.rs 131.550 \
+//!           -- rtlsdr.rs 0                    \
+//!         /               \ acars.rs 131.725 \ \
+//! main.rs                                      output.rs
+//!         \               / acars.rs 129.125 / /
+//!           -- rtlsdr.rs 1                    /
+//!                         \ acars.rs 129.425 /
+//! ```
+//!
+//! ## Output:
+//! ```
+//! 07:41:55 TEST[0] 131.550 MHz -24  ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC]
+//! 07:42:07 TEST[0] 129.125 MHz -21  ↗ ⊝ [2.C-FTJQ1_dY]
+//! 07:42:39 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767K_d5.S75AZD8767]
+//! 07:42:43 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767.H16.F40AZD8767#M1BPOSN46341W074141,VID01,074240,370,LIV01,074249,DIC01,M52,243114,375C619]
+//! 07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL0<527N07344WV136975/]
+//! 07:46:05 TEST[0] 131.550 MHz -21  ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC]
+//! 07:46:33 TEST[1] 131.725 MHz -18  ↘ ⊝ [2..N8767.H10.F42AZD8767#M1B/B0 YQME2YA.AFN/FMHN8767,..N8767,,074615/FPON46496W073292,0/FCOATC,01/FCOADS,014028]
+//! 07:46:36 TEST[1] 131.725 MHz -20  ↘ ⊝ [2..N8767N_d1.S78AZD8767]
+//! -------- ------- ----------- ---  - - -------------------------
+//!     |       |       |         |   | | ACARS Block
+//!     |       |       |         |   | SingleBlock or MultiBlock
+//!     |       |       |         |   Uplink or Downlink
+//!     |       |       |         Signal Strenght
+//!     |       |       Channel Frequency
+//!     |       Station & Channel number 
+//!     Time (hh:mm:ss)
+//! ``` 
+//! 
+//! 
+//! ## Challenges:
+//! 
+//! There is some odd behavior still under investigation by the author. The simple sample_size achived by 
+//! diving the device SAMPLE_RATE per the CHANNEL_RATE, shows poor decoding performance, with improvements 
+//! being a achived with multiple of these values. To achieve better performance the author applied a 
+//! factor constant named SIZE_RATE_MULTIPLIER = 20. Values from 10 in general are enough for good results.
+//! When compared with other acars decoders this seems to be a deffect still to be investigated.
+//! 
+//! 
+//! ## Next steps:
+//! 
+//! There are some functionalities still not present in acarsrx to achieve V1.0, like:
+//!
+//! 1. Multiple Reception qualities to be submitted to output.rs (Bad CRC block, Bad parity bit, etc). It 
+//!    will be for the output.rs thread to define what is to be printed and how.
+//! 
+//! 2. CRC error checking, correction and re parity check.
+//! 
+//! Other improvements, new functionalities are planned for future:
+//! 3. Enable ACARS Block assembly into ACARS Messages (Type-B messages) with translation of Labels into 
+//!    SMI, and standard message formating (Following AEEC 620-8 specification).
+//! 
+//! 4. Control of HackRF SDR. Other SDR devices can be controled as well given that similar methods to
+//!    enable the IQ buffer to be retrieved and transformed into vectors of complex numbers.
+//! 
+//! 5. Implementation of VDL Mode 2 decoding. By design a single SDR should enable decoding of multiple 
+//!    protocols and both Plain Old ACARS and VDL Mode 2 should be possible to be decoded, give that enough
+//!    bandwidth and channel separation is provided.
+//! 
+//! 
+//!
 
 use std::env;
 use std::fs;
@@ -12,35 +133,99 @@ extern crate serde_json;
 extern crate chrono;
 
 mod rtlsdr;
+mod hackrf;
 mod acars;
 mod output;
 
+
 fn main() {
+
+    banner();
 
     let args: Vec<String> = env::args().collect();
     let config = Config::from_arguments(args);
-
+    let radios = config.radios.len();
     let (tx, rx) = mpsc::channel();
-    let output = thread::spawn(|| { output::thread(rx); } );
 
     for radio in config.radios {
 
         let number = radio.number;
         let model = radio.model;
         let frequencies = radio.frequencies.clone();
-
         let tx_local = tx.clone();
 
         match model {
             Model::RTLSDR => { thread::spawn(move || { rtlsdr::Device::new(number, frequencies, tx_local); }); },
-            Model::HACKRF => { },
+            Model::HACKRF => { thread::spawn(move || { hackrf::Device::new(number, frequencies, tx_local); }); },
         }
     }
     
-    output.join().unwrap();
+    if radios > 0 { 
+
+        let output = thread::spawn(|| { output::thread(rx); } );
+        output.join().unwrap(); 
+    
+    } else { 
+
+        usage();
+    }
 }
 
+fn banner() {
 
+    let version = String::from("Version 0.8.0");
+    let release = String::from("07-Oct-2019");
+
+    println!("
+ acarsrx {} - {} 
+ Copyright (c) 2019 Manoel Souza <manoel.desouza@outlook.com.br>
+    ", version, release);
+}
+
+fn usage() {
+
+    let default_config = String::from(
+            "{\n\t\"forward_to\": \"\",\n\t\"save_to\": \"\",\n\t\"radios\": [\n\
+            \t\t{ \"model\": \"RTLSDR\", \"number\": 0, \"mode\": \"ACARS\", \
+            \"frequencies\": [ 131.550, 131.725 ] }\n\t]\n}\n"
+    );
+
+    println!(" Usage: acarsrx [ --rtlsdr index freq1 freq2 ... freqN ] [ --config filename ]
+        \
+        \n Ex: acarsrx --rtlsdr 0 131.550 131.725 --rtlsdr 1 129.125
+        \
+        \n --rtlsdr: Controls a single RTL-SDR dongle.\
+        \n   * index: RTL-SDR device id found with rtl_test program right after \"Found X device(s):\"\
+        \n     Multiple rtl-sdr devices can be operated in a single execution.\
+        \n   * freqN: List of frequencies to be decoded. Make sure each RTL-SDR device is set with \
+        \n     frequencies no farther than 1 MHz.
+        \
+        \n --config: Instead of entering all parameters via command line, JSON formated configuration \
+        \n           file is used instead. Default contents are:\
+        \n
+        \nDefault Config:\
+        \n{}\
+        \nSample Output:
+        \
+        \n07:41:55 TEST[0] 131.550 MHz -24  ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC] \
+        \n07:42:07 TEST[0] 129.125 MHz -21  ↗ ⊝ [2.C-FTJQ1_dY] \
+        \n07:42:39 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767K_d5.S75AZD8767] \
+        \n07:42:43 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767.H16.F40AZD8767#M1BPOSN46341W074141,VID01,074240,370,LIV01,074249,DIC01,M52,243114,375C619] \
+        \n07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL0<527N07344WV136975/] \
+        \n07:46:05 TEST[0] 131.550 MHz -21  ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC] \
+        \n07:46:33 TEST[1] 131.725 MHz -18  ↘ ⊝ [2..N8767.H10.F42AZD8767#M1B/B0 YQME2YA.AFN/FMHN8767,..N8767,,074615/FPON46496W073292,0/FCOATC,01/FCOADS,014028] \
+        \n07:46:36 TEST[1] 131.725 MHz -20  ↘ ⊝ [2..N8767N_d1.S78AZD8767] \
+        \n-------- ------- ----------- ---  - - ------------------------- \
+        \n    |       |       |         |   | | ACARS Block \
+        \n    |       |       |         |   | SingleBlock or MultiBlock \
+        \n    |       |       |         |   Uplink or Downlink \
+        \n    |       |       |         Signal Strenght \
+        \n    |       |       Channel Frequency \
+        \n    |       Station & Channel number \
+        \n    Time (hh:mm:ss) \
+        \n", default_config);
+
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
@@ -67,7 +252,6 @@ pub enum Model {
 pub enum Mode {
     ACARS,
     VDLM2,
-//    ADSB,
 }
 
 impl Config {

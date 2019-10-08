@@ -1,4 +1,28 @@
+/*
+ *
+ *  This code is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU Library General Public License version 2
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Library General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Library General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ */
 
+
+//! acars.rs provides all functionalities for ACARS decoding. The Channel object 
+//! once instantiated received the vectors of complex numbers from the SDR device, 
+//! and demodulates the (using Demod object), Decode via (Frame object) and outputs 
+//! Reception objects to the output handler thread. 
+
+
+/// Common data types used in both poa and vdl (future development) 
 pub mod common {
 
     use std::fmt;
@@ -7,6 +31,8 @@ pub mod common {
 
 
     #[derive(Debug)]
+    /// Reception object maps all reception parameters outside of the acars block contents 
+    /// (i.e. Channel, frequency, Signal strenght, reception date/time, etc)
     pub struct Reception {
         pub date_time: DateTime<Utc>,
         pub station: String,
@@ -19,21 +45,21 @@ pub mod common {
 
     #[allow(dead_code)]
     #[derive(Debug)]
+    /// Block object holds all characters from the raw ACARS block in a vector o u8 (byte) values
+    /// All interpretation of values is done by the multiple methods defined for the object
     pub struct Block {
-        // B.PR-MAQ.H10.D11AJJ3242#DFBA47/A31947,1,1/AMDAR,REPORT/C1100,PR-MAQ,2337S,04639W/C203,102229,02370,0
-        // ---------------------------------------
-        // 0123456789012345678901234567890123456789
-        // ||      || |||   |Flight Identifier (Only mandatory in Downlinks)
-        // ||      || |||Message Sequence Number (Only mandatory in Downlinks)
-        // ||      || |||Text (Optional)
-        // ||      || ||Start of Text (Optional)
-        // ||      || |Block Identifier
-        // ||      ||Label
-        // ||      |Technical Ack
-        // ||Address
-        // |Mode character
-        // ----------------------------------------
-        // AEEC SPECIFICATION 620-9 (PUBLISHED: December 21, 2017)
+        /// 2.C-FTJS.4T9.M97AAC0760EAA AC0760/07/07 YUL 2140Z
+        /// ---------------------------------------
+        /// 0123456789012345678901234567890123456789
+        /// ||      || |||   |Flight Identifier (Only mandatory in Downlinks)  : AC0760
+        /// ||      || |||Message Sequence Number (Only mandatory in Downlinks): M97A
+        /// ||      || |||Text (Optional)                                      : EAA AC0760/07/07 YUL 2140Z
+        /// ||      || ||Start of Text (Optional)                              : .
+        /// ||      || |Block Identifier                                       : 9
+        /// ||      ||Label                                                    : 4T
+        /// ||      |Technical Ack                                             : .
+        /// ||Address                                                          : .C-FTJS
+        /// |Mode character                                                    : 2
 
         raw: Vec<u8>
     }
@@ -332,7 +358,17 @@ pub mod common {
     }
 }
 
+/// Demodulation functions for Plain Old ACARS (POA)
 pub mod poa {
+
+    //! POA modules implements all demodulation functions and structs related to Plain
+    //! Old ACARS decoding. From POA channel instanciation via public function new(), 
+    //! the following sequence of actions will be taken:
+    //! 
+    //! 1. General channel parameters (frequency, decimation factor, etc) will be defined;
+    //! 2. A local oscilator wave for will be created;
+    //! 3. Msk and Frame objects will be instantiated;
+    //! 4. The reception on complex samples will commence;
     
     extern crate chrono;
 
@@ -349,6 +385,15 @@ pub mod poa {
 
 
     #[allow(dead_code)]
+    /// Inputs a vector of complex numbers from the SDR device mixes and decimates 
+    /// the same into a vector of f64`s, demodulates the same using Demod object 
+    /// into sequences of bits (bool) which are in turn sequenced using the Frame
+    /// object. Once a Block is complete, it is packed into a reception object which
+    /// is sent to the output handler thread created by main.rs
+    /// 
+    /// Channel Object holds all high-level channel information channel frequency,
+    /// channel sample rate, and is composed of the deeper details of the demodulation
+    /// and decoding objects.
     pub struct Channel {
         index: usize,
         central_frequency: f64,
@@ -366,6 +411,7 @@ pub mod poa {
 
     impl Channel {
 
+        /// Instantiator for the Channel object
         pub fn new(channel_steup: (usize, f64, f64, u32, usize, mpsc::Receiver<Arc<Vec<Complex<f64>>>>, mpsc::Sender<Reception>)) {
 
             let channel = Channel::setup(channel_steup);
@@ -373,6 +419,7 @@ pub mod poa {
             channel.process();
         }
 
+        /// Initializes all Channel parameters (i.e. local_oscilator) and subcomponent objetcs (Demod and Frame) 
         fn setup(channel_steup: (usize, f64, f64, u32, usize, mpsc::Receiver<Arc<Vec<Complex<f64>>>>, mpsc::Sender<Reception>)) 
             -> Channel {
 
@@ -407,6 +454,8 @@ pub mod poa {
             channel
         }
 
+        /// Executes the mixing from the SDR with local oscilator and decimates the same 
+        /// before calling the demodulation process.
         fn process(mut self) {
 
             loop {
@@ -440,6 +489,8 @@ pub mod poa {
             }
         }
 
+        /// Re-implementation of Thierry Leconte`s demodMSK() function defined in
+        /// https://github.com/TLeconte/acarsdec/blob/master/msk.c
         fn demodulate(&mut self, real_signal: Vec<f64>) {
 
             let flen = (self.channel_rate / 1_200) + 1;
@@ -488,6 +539,9 @@ pub mod poa {
             self.msk.idx = idx;
         }
 
+        /// Composition of the stream of bits produced by demodulate() function into an ACARS frame
+        /// and extraction of the ACARS Block (from after the SOH character until the ETX/ETB character).
+        /// This function checks for parity in each byte and  
         fn decode(&mut self, bit: bool) {
 
             self.frame.byte >>= 1;
@@ -614,14 +668,14 @@ pub mod poa {
             }
         }
 
+        /// Prepares the decoded block, includes the same into a Reception object to be sent to output handler thread
         fn build_output(channel: &Channel) {
 
-            // ERROR CHECKING & CORRECTION
-            // self.frame.check_and_correct();
-
-            // CHECK CRC
-
-            // PARITY CHECK
+            //! Pending:
+            //! 
+            //! ERROR CHECKING & CORRECTION
+            //! CHECK CRC
+            //! PARITY CHECK
 
             let level = (10.0 * channel.msk.lvl.log10()) as isize;
             let station = String::from("TEST");
@@ -647,7 +701,10 @@ pub mod poa {
             channel.output.send(reception).expect("failure sending block");
         }
 
-        fn local_oscilator(central_frequency: f64, channel_frequency: f64, sample_rate: u32, sample_size: usize) -> Vec<num::Complex<f64>> {
+        /// Defines the local wave form to tune the signal from SDR central frequency into the channel_frequency
+        /// This function is executed by Channel::setup during channel initialization
+        fn local_oscilator(central_frequency: f64, channel_frequency: f64, sample_rate: u32, sample_size: usize)
+            -> Vec<num::Complex<f64>> {
 
             let freq_difference = channel_frequency - central_frequency;
 
@@ -665,6 +722,11 @@ pub mod poa {
     }
 
     #[derive(Debug)]
+    /// Implements ACARS MSK demodulation following the methodology implemented by 
+    /// Thierry Leconte in acarsdec`s msk.c file.
+    /// https://github.com/TLeconte/acarsdec/blob/master/msk.c
+    /// 
+    /// The Demod object corresponds to Msk*** fields in channel_t struct.
     struct Demod {
         channel_rate: u32,
         df:  f64,
@@ -731,6 +793,12 @@ pub mod poa {
 
     #[allow(dead_code)]
     #[derive(Debug)]
+    /// Implements ACARS decoding following the methodology implemented by 
+    /// Thierry Leconte in acarsdec`s acars.c file.
+    /// https://github.com/TLeconte/acarsdec/blob/master/acars.c
+    /// 
+    /// The Frame object corresponds to different fields in channel_t struct like,
+    /// Acarsstate, nbits, etc.
     struct Frame {
         byte: u8,
         stage: FrameStage,
@@ -832,6 +900,7 @@ pub mod poa {
     }
 }
 
+/// Demodulation functions for VDL Mode 2 encoding - Pending
 pub mod vdl {
 
     // to be defined
@@ -839,6 +908,7 @@ pub mod vdl {
 }
 
 #[allow(dead_code)]
+/// ASCII constants used in ACARS Block and decoding method 
 pub mod ascii {
 
     pub const NUL: u8 = 0x00;
@@ -876,6 +946,7 @@ pub mod ascii {
     pub const DEL: u8 = 0x7f;
 }
 
+/// Values and functions used for CRC error checking - Pending
 pub mod crc {   
 
     // to be defined
