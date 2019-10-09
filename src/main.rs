@@ -201,7 +201,7 @@ fn main() {
 
 fn banner() {
 
-    let version = String::from("Version 0.8.0");
+    let version = String::from("v0.8.0");
     let release = String::from("07-Oct-2019");
 
     println!("

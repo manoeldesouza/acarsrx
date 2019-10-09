@@ -52,15 +52,15 @@ pub mod common {
         /// 2.C-FTJS.4T9.M97AAC0760EAA AC0760/07/07 YUL 2140Z
         /// ---------------------------------------
         /// 0123456789012345678901234567890123456789
-        /// ||      || |||   |Flight Identifier (Only mandatory in Downlinks)  : AC0760
+        /// ||      || |||   Flight Identifier (Only mandatory in Downlinks)   : AC0760
         /// ||      || |||Message Sequence Number (Only mandatory in Downlinks): M97A
-        /// ||      || |||Text (Optional)                                      : EAA AC0760/07/07 YUL 2140Z
-        /// ||      || ||Start of Text (Optional)                              : .
-        /// ||      || |Block Identifier                                       : 9
-        /// ||      ||Label                                                    : 4T
-        /// ||      |Technical Ack                                             : .
-        /// ||Address                                                          : .C-FTJS
-        /// |Mode character                                                    : 2
+        /// ||      || ||Text (Optional)                                       : EAA AC0760/07/07 YUL 2140Z
+        /// ||      || |Start of Text (Optional)                               : .
+        /// ||      || Block Identifier                                        : 9
+        /// ||      |Label                                                     : 4T
+        /// ||      Technical Ack                                              : .
+        /// |Address                                                           : .C-FTJS
+        /// Mode character                                                     : 2
         /// ```
 
         raw: Vec<u8>
@@ -358,7 +358,7 @@ pub mod common {
             let (_, direction) = self.get_blk().expect("Error at pub fn get_essential(): let (_, direction) = self.get_blk()");
             let (_, _, suffix) = self.get_suffix().expect("Error at pub fn get_essential(): let (_, _, suffix) = self.get_suffix()");
 
-            let text = format!(" {} {}", 
+            let text = format!("{} {}", 
                 match direction {
                     Direction::Downlink => "↘",
                     Direction::Uplink   => "↗",
