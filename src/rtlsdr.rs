@@ -16,7 +16,7 @@
  */
 
 
-//! rtlsdr.rs provides all functionalities for RTLSDR device handling. The Device object 
+//! Provides all functionalities for RTLSDR device handling. The Device object 
 //! once instantiated will create threads for each channel.
 //! 
 //! Reasonably operational. Still need to investigate the use of SAMPLE_RATE in conjunction with
@@ -46,7 +46,7 @@ pub struct Device {
 
 impl Device {
 
-    /// Instantiator for the Channel object
+    /// Instantiator for the Device object
     pub fn new(index: i32, frequencies: Vec<f64>, output: mpsc::Sender<Reception>) {
 
         loop {
@@ -64,7 +64,8 @@ impl Device {
         }
     }
 
-    /// Initializes all Device parameters
+    /// Initializes all Device parameters and creates new Channel objects according to the 
+    /// frequencies selected for ACARS decoding.
     fn setup(index: i32, frequencies: &Vec<f64>, output: mpsc::Sender<Reception>) -> Result<Device, rtlsdr::RTLSDRError> {
 
         let central_frequency = Device::central_frequency(&frequencies);
@@ -75,7 +76,7 @@ impl Device {
         let mut dev = rtlsdr::open(index) ?;
 
         dev.set_tuner_gain_mode(true) ?;
-        dev.set_tuner_gain(496) ?;                 // TODO: Need to create a Nearest Gain
+        dev.set_tuner_gain(496) ?;                 // TODO: Need to create a Nearest Gain function
         dev.set_center_freq((central_frequency * 1e6) as u32) ?;
         dev.set_sample_rate(sample_rate) ?;
         dev.reset_buffer() ?;

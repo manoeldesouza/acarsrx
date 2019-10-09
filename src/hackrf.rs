@@ -16,7 +16,7 @@
  */
 
 
-//! hackrf.rs provides all functionalities for HACKRF SDR device handling. The Device object 
+//! Provides all functionalities for HACKRF SDR device handling. The Device object 
 //! once instantiated will create threads for each channel.
 //! 
 //! Work in Progress

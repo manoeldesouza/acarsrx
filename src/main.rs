@@ -17,6 +17,7 @@
 
 //! # acarsrx
 //! Copyright (c) 2019 Manoel Souza <manoel.desouza@outlook.com.br>
+//! 
 //! ACARS decoder for RTL-SDR and (in future) other SDR devices
 //! 
 //! Inspired on Acarsdec Copyright (c) by Thierry Thierry Leconte
@@ -35,7 +36,9 @@
 //! used to demodulate and decode multiple frequencies. Special attention is put into decoupling the 
 //! SDR handling and the channels processing (where demodulation, decoding and block formating). This 
 //! way, it is planned for other SDR devices to be controlled from the same application (HackRF is a 
-//! work in progress).
+//! work in progress). Finally, acarsrx is designed in a way to recover from SDR devices disconnects.
+//! Being USB devices the author experienced common disconnect situations and enable the application 
+//! to recover from such situation proved to be an asset. 
 //! 
 //! 
 //! ## Design:
@@ -67,15 +70,13 @@
 //!                         \ acars.rs 129.425 /
 //! ```
 //!
-//! ## Output:
-//! ```
+//! ### Sample Output:
+//! ```text
 //! 07:41:55 TEST[0] 131.550 MHz -24  ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC]
 //! 07:42:07 TEST[0] 129.125 MHz -21  ↗ ⊝ [2.C-FTJQ1_dY]
 //! 07:42:39 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767K_d5.S75AZD8767]
-//! 07:42:43 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767.H16.F40AZD8767#M1BPOSN46341W074141,VID01,074240,370,LIV01,074249,DIC01,M52,243114,375C619]
-//! 07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL0<527N07344WV136975/]
+//! 07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL04527N07344WV136975/]
 //! 07:46:05 TEST[0] 131.550 MHz -21  ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC]
-//! 07:46:33 TEST[1] 131.725 MHz -18  ↘ ⊝ [2..N8767.H10.F42AZD8767#M1B/B0 YQME2YA.AFN/FMHN8767,..N8767,,074615/FPON46496W073292,0/FCOATC,01/FCOADS,014028]
 //! 07:46:36 TEST[1] 131.725 MHz -20  ↘ ⊝ [2..N8767N_d1.S78AZD8767]
 //! -------- ------- ----------- ---  - - -------------------------
 //!     |       |       |         |   | | ACARS Block
@@ -107,19 +108,46 @@
 //! 2. CRC error checking, correction and re parity check.
 //! 
 //! Other improvements, new functionalities are planned for future:
-//! 3. Enable ACARS Block assembly into ACARS Messages (Type-B messages) with translation of Labels into 
+//! 
+//! 3. Implement multiple output formats in addition to current single-line print, for example JSON, Ncurses
+//!    based interface, UDP transmission, Save to file. 
+//! 
+//! 4. Enable ACARS Block assembly into ACARS Messages (Type-B messages) with translation of Labels into 
 //!    SMI, and standard message formating (Following AEEC 620-8 specification).
 //! 
-//! 4. Control of HackRF SDR. Other SDR devices can be controled as well given that similar methods to
+//! 5. Control of HackRF SDR. Other SDR devices can be controled as well given that similar methods to
 //!    enable the IQ buffer to be retrieved and transformed into vectors of complex numbers.
 //! 
-//! 5. Implementation of VDL Mode 2 decoding. By design a single SDR should enable decoding of multiple 
+//! 6. Implementation of VDL Mode 2 decoding. By design a single SDR should enable decoding of multiple 
 //!    protocols and both Plain Old ACARS and VDL Mode 2 should be possible to be decoded, give that enough
 //!    bandwidth and channel separation is provided.
 //! 
 //! 
-//!
-
+//! ## Future developments:
+//! 
+//! The exercise on implementing a decoupling between ACARS demodulation and decoding from the sample
+//! extraction from SDR device, inspires the author to consider developing a general SDR driver which
+//! would be able to control and generate samples for multiple protocols (couting on community support)
+//! and outputs. Such server would enable multiple decoders to consume the same sources and multiple 
+//! outputs to be triggered from those.
+//! 
+//! | Input |  Process  |  Output |
+//! |:-----:|:---------:|:-------:|
+//! |RTLSDR | AM FM SSB | speaker |
+//! |HACKRF | ACARS     | wav     |
+//! |AIRSPY | CW        | json    |
+//! |etc    | APRS      | txt     |
+//! |       | etc       | tcp/udp |
+//! 
+//! Suggested name: sdrD (software defined radio Daemon).
+//! 
+//! ## Additional details on acarsrx:
+//! 
+//! The modules section below describes the internal functions in acarsrx
+//! 
+//! My regards, Manoel Souza
+//! 08-Oct-2019
+//! 
 use std::env;
 use std::fs;
 use std::thread;
@@ -210,10 +238,8 @@ fn usage() {
         \n07:41:55 TEST[0] 131.550 MHz -24  ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC] \
         \n07:42:07 TEST[0] 129.125 MHz -21  ↗ ⊝ [2.C-FTJQ1_dY] \
         \n07:42:39 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767K_d5.S75AZD8767] \
-        \n07:42:43 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767.H16.F40AZD8767#M1BPOSN46341W074141,VID01,074240,370,LIV01,074249,DIC01,M52,243114,375C619] \
         \n07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL0<527N07344WV136975/] \
         \n07:46:05 TEST[0] 131.550 MHz -21  ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC] \
-        \n07:46:33 TEST[1] 131.725 MHz -18  ↘ ⊝ [2..N8767.H10.F42AZD8767#M1B/B0 YQME2YA.AFN/FMHN8767,..N8767,,074615/FPON46496W073292,0/FCOATC,01/FCOADS,014028] \
         \n07:46:36 TEST[1] 131.725 MHz -20  ↘ ⊝ [2..N8767N_d1.S78AZD8767] \
         \n-------- ------- ----------- ---  - - ------------------------- \
         \n    |       |       |         |   | | ACARS Block \

@@ -15,6 +15,11 @@
  *
  */
 
+//! Provides all output functions for ACARS blocks. Currently only prints a single-line block
+//! representation to the screen, but will in future enable multiple output formats like JSON,
+//! detailed Reception and Block information and also forward the Reception detail via UDP to
+//! other hosts. Potential future development also include ncurses based interface and / or 
+//! HTTP portal.
 
 
 use std::sync::mpsc;

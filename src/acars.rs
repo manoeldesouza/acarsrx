@@ -15,9 +15,8 @@
  *
  */
 
-
-//! acars.rs provides all functionalities for ACARS decoding. The Channel object 
-//! once instantiated received the vectors of complex numbers from the SDR device, 
+//! Provides all functionalities for ACARS decoding. The Channel object once 
+//! instantiated received the vectors of complex numbers from the SDR device, 
 //! and demodulates the (using Demod object), Decode via (Frame object) and outputs 
 //! Reception objects to the output handler thread. 
 
@@ -45,9 +44,11 @@ pub mod common {
 
     #[allow(dead_code)]
     #[derive(Debug)]
-    /// Block object holds all characters from the raw ACARS block in a vector o u8 (byte) values
-    /// All interpretation of values is done by the multiple methods defined for the object
+    /// Block object holds all characters from the raw ACARS block in a vector of u8 (byte) 
+    /// values. All interpretation of values is done by the multiple methods implemented for 
+    /// the struct
     pub struct Block {
+        /// ```text
         /// 2.C-FTJS.4T9.M97AAC0760EAA AC0760/07/07 YUL 2140Z
         /// ---------------------------------------
         /// 0123456789012345678901234567890123456789
@@ -60,6 +61,7 @@ pub mod common {
         /// ||      |Technical Ack                                             : .
         /// ||Address                                                          : .C-FTJS
         /// |Mode character                                                    : 2
+        /// ```
 
         raw: Vec<u8>
     }
@@ -92,6 +94,7 @@ pub mod common {
 
         }
 
+        /// Takes a slice of bytes, removes the parity bit and stores as a vector of bytes. 
         fn from_slice(buffer: &[u8]) -> Block {
 
             let mut raw = Vec::new();
@@ -107,6 +110,8 @@ pub mod common {
             Block { raw: raw }
         }
 
+        /// Takes a unicode string, converts each character to bytes, removes the parity bit 
+        /// and stores as a vector of bytes.
         pub fn from_unicode(unicode_string: String) -> Result<Block, String> {
 
             let mut raw = Vec::new();
@@ -122,6 +127,8 @@ pub mod common {
             Block::check_block(Block { raw: raw })
         }
 
+        /// Executes all essential "get" methods to the block in order to confirm the contents
+        /// are correct according to AEEC 618 specification
         fn check_block(acars_block: Block) -> Result<Block, String> {
 
             acars_block.get_mode() ?;
@@ -141,12 +148,14 @@ pub mod common {
             Ok(acars_block)
         }
 
+        /// Removes parity bit from byte
         fn strip_parity_bit(byte: u8) -> u8 {
 
             byte & 0b_0111_1111
         
         }
 
+        /// Copy Block contents
         pub fn clone(&self) -> Block {
 
             let clone  = self.raw.clone();
@@ -154,6 +163,8 @@ pub mod common {
             Block { raw: clone }
         }
 
+        /// Outputs the mode character from the block and flags an error for invalid characters in accordance 
+        /// to the specification AEEC 618.
         pub fn get_mode(&self) -> Result<(u8, Mode), String> {
 
             let mode = match self.raw.get(0) {
@@ -169,6 +180,7 @@ pub mod common {
             }
         }
 
+        /// Outputs a formatted string out of the aircraft registration array.
         pub fn get_aircraft(&self) -> String {
 
             let mut aircraft = String::from("");
@@ -190,6 +202,8 @@ pub mod common {
             aircraft
         }
 
+        /// Outputs an array representing the aircraft registration from the block and flags an error for 
+        /// invalid characters in accordance to the specification AEEC 618.
         pub fn get_aircraft_array(&self) -> Result<[u8; 7], String> {
 
             let mut result = [NUL; 7];
@@ -210,6 +224,8 @@ pub mod common {
             Ok(result)
         }
 
+        /// Ouputs the Technical Ack and its derived meaning, and flags an error for 
+        /// invalid characters in accordance to the specification AEEC 618.
         pub fn get_ack(&self) -> Result<(u8, Direction), String> {
 
             let ack = match self.raw.get(8) {
@@ -226,6 +242,7 @@ pub mod common {
             }
         }
 
+        /// Outputs a formatted string out of the label array.
         pub fn get_label(&self) -> String {
                 
             let mut label = String::from("");
@@ -246,6 +263,8 @@ pub mod common {
             label
         }
 
+        /// Outputs an array representing the label from the block and flags an error for 
+        /// invalid characters in accordance to the specification AEEC 618.
         pub fn get_label_array(&self) -> Result<[u8; 2], String> {
 
             let mut result = [NUL; 2];
@@ -266,6 +285,8 @@ pub mod common {
             Ok(result)
         }
 
+        /// Ouputs the Block Id and its derived meaning, and flags an error for 
+        /// invalid characters in accordance to the specification AEEC 618.
         pub fn get_blk(&self) -> Result<(u8, Direction), String> {
 
             let blk = match self.raw.get(11) {
@@ -282,6 +303,7 @@ pub mod common {
             }
         }
 
+        /// Checks for STX character
         pub fn get_stx(&self) -> Result<bool, String> {
 
             match self.raw.get(12) {
@@ -291,6 +313,8 @@ pub mod common {
             }
         }
 
+        /// Ouputs the Block Suffix and its derived meaning, and flags an error for 
+        /// invalid characters in accordance to the specification AEEC 618.
         pub fn get_suffix(&self) -> Result<(u8, usize, Suffix), String> {
 
             match self.raw.iter().position(|&x| (x == ETX || x == ETB)) {
@@ -306,6 +330,7 @@ pub mod common {
             }
         }
 
+        /// Ouputs a repesentation of the raw ACARS block
         pub fn get_raw(&self) -> String {
 
             let (_, size, _) = self.get_suffix().expect("Error at pub fn get_raw(): let (_, size, _) = self.get_suffix()");
@@ -326,6 +351,8 @@ pub mod common {
             raw
         }
 
+        /// Ouputs a repesentation of the raw ACARS block with visual indicators like Direction 
+        /// and SingleBlock/MultiBlock condition.
         pub fn get_essential(&self) -> String {
 
             let (_, direction) = self.get_blk().expect("Error at pub fn get_essential(): let (_, direction) = self.get_blk()");
@@ -366,7 +393,7 @@ pub mod poa {
     //! the following sequence of actions will be taken:
     //! 
     //! 1. General channel parameters (frequency, decimation factor, etc) will be defined;
-    //! 2. A local oscilator wave for will be created;
+    //! 2. A local oscilator wave for the channel will be created;
     //! 3. Msk and Frame objects will be instantiated;
     //! 4. The reception on complex samples will commence;
     
@@ -741,6 +768,7 @@ pub mod poa {
 
     impl Demod {
 
+        /// Initializes the Demod object parameters
         pub fn new(channel_rate: u32) -> Demod {
 
             let flen = (channel_rate as usize / 1_200) + 1;
@@ -769,6 +797,8 @@ pub mod poa {
             }
         }
 
+        /// Defines the bit value and dphi based on the quadrature position and the value of 
+        /// the complex number v. Corresponds to switch(ch->MskS&3) in Acarsdec
         fn quadrature(msk_s: u32, v: Complex<f64>) -> (f64, bool) {
 
             let dphi: f64;
@@ -826,6 +856,7 @@ pub mod poa {
 
     impl Frame {
 
+        /// Initializes the Frame object parameters
         pub fn new() -> Frame {
 
             let stage = FrameStage::WSYN1;
@@ -852,6 +883,7 @@ pub mod poa {
             }
         }
 
+        /// Checks for ODD parity bits. Results in false for failure
         pub fn is_parity_correct(byte: &u8) -> bool {
 
             let mut bit_count = 0;
@@ -873,6 +905,7 @@ pub mod poa {
 
         }
 
+        /// Stripes the parity bit from each byte in the vector
         pub fn remove_parity(bytes: &Vec<u8>) -> Vec<u8> {
 
             let mut no_parity: Vec<u8> = Vec::new();
@@ -886,6 +919,7 @@ pub mod poa {
             no_parity
         }
 
+        /// Re-initializes the Frame object parameters
         pub fn clear(&mut self) {
 
             self.stage = FrameStage::WSYN1;
@@ -903,7 +937,7 @@ pub mod poa {
 /// Demodulation functions for VDL Mode 2 encoding - Pending
 pub mod vdl {
 
-    // to be defined
+    //! to be defined
 
 }
 
@@ -949,6 +983,6 @@ pub mod ascii {
 /// Values and functions used for CRC error checking - Pending
 pub mod crc {   
 
-    // to be defined
+    //! to be defined
 
 }
