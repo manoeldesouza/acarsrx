@@ -119,9 +119,7 @@ outputs to be triggered from those.
 
 Suggested name: sdrD (software defined radio Daemon).
 
-## Additional details on acarsrx:
 
-The modules section below describes the internal functions in acarsrx
 
 My regards, Manoel Souza
 08-Oct-2019
