@@ -400,6 +400,7 @@ pub mod poa {
     extern crate chrono;
 
     use std::f64::consts::PI;
+    use std::process;
     use std::sync::Arc;
     use std::sync::mpsc;
     use chrono::{DateTime, Utc};
@@ -705,7 +706,11 @@ pub mod poa {
             //! PARITY CHECK
 
             let level = (10.0 * channel.msk.lvl.log10()) as isize;
-            let station = String::from("TEST");
+            let station = String::from(
+                String::from_utf8(process::Command::new("hostname")
+                .output().expect("Error running hostname")
+                .stdout).expect("Error running hostname")
+                .trim());
 
             let no_parity = Frame::remove_parity(&channel.frame.bytes);
             let block = match Block::new(no_parity.as_slice()) {

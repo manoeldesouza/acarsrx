@@ -26,7 +26,7 @@ use std::sync::mpsc;
 use crate::chrono::Timelike;
 use crate::acars::common::Reception;
 
-/// Initiates the thread controlling the all standard outputs of the program (stdout for the time being)
+/// Initiates the thread controlling the all outputs of the program (only stdout for the time being)
 pub fn thread(input: mpsc::Receiver<Reception>) {
 
     loop {

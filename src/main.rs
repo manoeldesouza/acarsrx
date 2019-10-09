@@ -72,19 +72,19 @@
 //!
 //! ### Sample Output:
 //! ```text
-//! 07:41:55 TEST[0] 131.550 MHz -24  ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC]
-//! 07:42:07 TEST[0] 129.125 MHz -21  ↗ ⊝ [2.C-FTJQ1_dY]
-//! 07:42:39 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767K_d5.S75AZD8767]
-//! 07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL04527N07344WV136975/]
-//! 07:46:05 TEST[0] 131.550 MHz -21  ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC]
-//! 07:46:36 TEST[1] 131.725 MHz -20  ↘ ⊝ [2..N8767N_d1.S78AZD8767]
-//! -------- ------- ----------- ---  - - -------------------------
-//!     |       |       |         |   | | ACARS Block
-//!     |       |       |         |   | SingleBlock or MultiBlock
-//!     |       |       |         |   Uplink or Downlink
-//!     |       |       |         Signal Strenght
-//!     |       |       Channel Frequency
-//!     |       Station & Channel number 
+//! 07:41:55 RADIO-r0-0 131.550 MHz -24 ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC]
+//! 07:42:07 RADIO-r0-0 129.125 MHz -21 ↗ ⊝ [2.C-FTJQ1_dY]
+//! 07:42:39 RADIO-r0-0 131.725 MHz -14 ↘ ⊝ [2..N8767K_d5.S75AZD8767]
+//! 07:45:11 RADIO-r0-0 131.725 MHz -23 ↗ ⊝ [2........SQ..02XSYULCYUL04527N07344WV136975/]
+//! 07:46:05 RADIO-r0-0 131.550 MHz -21 ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC]
+//! 07:46:36 RADIO-r0-0 131.725 MHz -20 ↘ ⊝ [2..N8767N_d1.S78AZD8767]
+//! -------- ---------- ----------- --- - - -------------------------
+//!     |       |          |         |  | | ACARS Block
+//!     |       |          |         |  | SingleBlock or MultiBlock
+//!     |       |          |         |  Uplink or Downlink
+//!     |       |          |         Signal Strenght
+//!     |       |          Channel Frequency
+//!     |       Station, device & Channel number 
 //!     Time (hh:mm:ss)
 //! ``` 
 //! 
@@ -235,20 +235,20 @@ fn usage() {
         \n{}\
         \nSample Output:
         \
-        \n07:41:55 TEST[0] 131.550 MHz -24  ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC] \
-        \n07:42:07 TEST[0] 129.125 MHz -21  ↗ ⊝ [2.C-FTJQ1_dY] \
-        \n07:42:39 TEST[1] 131.725 MHz -14  ↘ ⊝ [2..N8767K_d5.S75AZD8767] \
-        \n07:45:11 TEST[1] 131.725 MHz -23  ↗ ⊝ [2........SQ..02XSYULCYUL0<527N07344WV136975/] \
-        \n07:46:05 TEST[0] 131.550 MHz -21  ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC] \
-        \n07:46:36 TEST[1] 131.725 MHz -20  ↘ ⊝ [2..N8767N_d1.S78AZD8767] \
-        \n-------- ------- ----------- ---  - - ------------------------- \
-        \n    |       |       |         |   | | ACARS Block \
-        \n    |       |       |         |   | SingleBlock or MultiBlock \
-        \n    |       |       |         |   Uplink or Downlink \
-        \n    |       |       |         Signal Strenght \
-        \n    |       |       Channel Frequency \
-        \n    |       Station & Channel number \
-        \n    Time (hh:mm:ss) \
+        \n 07:41:55 RADIO-r0-0 131.550 MHz -24 ↗ ⊝ [2........SQ..01XAYULCYUL1ARINC]
+        \n 07:42:07 RADIO-r0-0 129.125 MHz -21 ↗ ⊝ [2.C-FTJQ1_dY]
+        \n 07:42:39 RADIO-r0-0 131.725 MHz -14 ↘ ⊝ [2..N8767K_d5.S75AZD8767]
+        \n 07:45:11 RADIO-r0-0 131.725 MHz -23 ↗ ⊝ [2........SQ..02XSYULCYUL04527N07344WV136975/]
+        \n 07:46:05 RADIO-r0-0 131.550 MHz -21 ↗ ⊝ [2........SQ..02XAYULCYUL14528N07344WV136975/ARINC]
+        \n 07:46:36 RADIO-r0-0 131.725 MHz -20 ↘ ⊝ [2..N8767N_d1.S78AZD8767]
+        \n -------- ---------- ----------- --- - - -------------------------
+        \n     |       |          |         |  | | ACARS Block
+        \n     |       |          |         |  | SingleBlock or MultiBlock
+        \n     |       |          |         |  Uplink or Downlink
+        \n     |       |          |         Signal Strenght
+        \n     |       |          Channel Frequency
+        \n     |       Station, device & Channel number 
+        \n     Time (hh:mm:ss)
         \n", default_config);
 
 }
